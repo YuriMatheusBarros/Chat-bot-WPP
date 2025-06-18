@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protótipo de Chatbot - Irba (Estilo WhatsApp Aprimorado)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Cor de fundo principal inspirada no site IBR */
+        }
+        /* Definindo as cores primárias do IBR como variáveis para fácil customização */
+        :root {
+            --ibr-blue: #4381cb; /* Azul escuro do logo */
+            --ibr-green: #00a99d; /* Verde dos detalhes */
+            --whatsapp-bg: #EAE6DF; /* Fundo de chat do WhatsApp */
+            --whatsapp-green-bubble: #DCF8C6; /* Balão de mensagem enviada (verde WhatsApp) */
+            --whatsapp-grey-bubble: #FFFFFF; /* Balão de mensagem recebida (branco WhatsApp) */
+            --whatsapp-header-green: #075E54; /* Cabeçalho WhatsApp */
+            --whatsapp-input-bg: #F0F2F5; /* Fundo da área de input */
+            --whatsapp-date-separator: #E0E0E0; /* Cor do fundo do separador de data */
+            --whatsapp-date-text: #6B7280; /* Cor do texto do separador de data */
+            --whatsapp-lock-icon: #9CA3AF; /* Cor do ícone de cadeado */
+            --whatsapp-encryption-bg: #FEF3C7; /* Cor de fundo da mensagem de criptografia */
+            --whatsapp-encryption-text: #4B5563; /* Cor do texto da mensagem de criptografia */
+            --whatsapp-mic-icon-green: #25D366; /* Cor verde para o ícone de microfone/áudio no input */
+        }
+
+        .chat-container.accessible-font {
+            font-size: 1.15rem; /* Fonte maior para acessibilidade */
+        }
+
+        .chat-bubble {
+            max-width: 80%;
+            transition: all 0.3s ease;
+            position: relative;
+            word-wrap: break-word; /* Garante que o texto quebre dentro do balão */
+            padding: 0.6rem 0.8rem; /* Padding ajustado para ficar mais próximo do WhatsApp */
+            border-radius: 0.75rem; /* Mais arredondado */
+        }
+
+        /* Estilo para a "cauda" do balão de chat (enviado) */
+        .chat-bubble.user-bubble::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -8px; /* Ajuste para o canto superior direito */
+            width: 0;
+            height: 0;
+            border-bottom: 8px solid var(--whatsapp-green-bubble); /* Cor do balão */
+            border-left: 8px solid transparent;
+            border-top: 0px solid transparent;
+        }
+
+        /* Estilo para a "cauda" do balão de chat (recebido) */
+        .chat-bubble.bot-bubble::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -8px; /* Ajuste para o canto superior esquerdo */
+            width: 0;
+            height: 0;
+            border-bottom: 8px solid var(--whatsapp-grey-bubble); /* Cor do balão */
+            border-right: 8px solid transparent;
+            border-top: 0px solid transparent;
+        }
+
+        .quick-reply-btn {
+            transition: background-color 0.2s ease;
+            /* Estilo mais neutro para se assemelhar a sugestões ou botões internos do WhatsApp */
+            background-color: #F0F0F0; /* Cinza claro */
+            color: #4B5563; /* Texto cinza escuro */
+            border: 1px solid #D1D5DB; /* Borda sutil */
+        }
+        .quick-reply-btn:hover {
+            background-color: #E0E0E0; /* Cinza um pouco mais escuro no hover */
+        }
+
+        #listening-indicator, #thinking-indicator {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 1rem 1.5rem;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 1rem;
+            z-index: 100;
+        }
+
+        /* Custom scrollbar para o chat body */
+        #chat-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chat-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        #chat-body::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        #chat-body::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Estilo para o separador de data */
+        .date-separator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+
+        .date-separator span {
+            background-color: var(--whatsapp-date-separator);
+            color: var(--whatsapp-date-text);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* Estilo para a mensagem de criptografia */
+        .encryption-message {
+            background-color: var(--whatsapp-encryption-bg);
+            color: var(--whatsapp-encryption-text);
+            font-size: 0.85rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            margin: 1rem auto;
+            max-width: 90%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .encryption-message svg {
+            color: var(--whatsapp-lock-icon);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-lg mx-auto bg-white rounded-2xl shadow-2xl flex flex-col h-[90vh] relative">
+        <!-- Indicador de "Ouvindo" -->
+        <div id="listening-indicator">Ouvindo...</div>
+        <!-- Indicador de "Pensando" -->
+        <div id="thinking-indicator">Pensando em uma resposta...</div>
+
+        <!-- Cabeçalho - Estilo WhatsApp -->
+        <div class="bg-whatsapp-header-green text-white p-4 rounded-t-2xl shadow-md flex justify-between items-center" style="background-color: var(--whatsapp-header-green) !important;">
+            <div class="flex items-center">
+                <img src="https://cdn-icons-png.flaticon.com/512/1626/1626629.png" onerror="this.onerror=null;this.src='https://placehold.co/48x48/075E54/ffffff?text=IBR';" alt="Avatar da Dona Irba" class="w-12 h-12 rounded-full mr-4 border-2 border-white/50">
+                <div>
+                    <h1 class="text-xl font-bold">Dona Irba</h1>
+                    <p class="text-sm opacity-90">Conta Comercial</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <i class="fas fa-video text-xl cursor-pointer hover:opacity-80"></i>
+                <i class="fas fa-phone text-xl cursor-pointer hover:opacity-80"></i>
+                <i class="fas fa-ellipsis-v text-xl cursor-pointer hover:opacity-80"></i>
+            </div>
+        </div>
+
+        <!-- Corpo do Chat - Fundo estilo WhatsApp -->
+        <div id="chat-body" class="flex-1 p-6 space-y-4 overflow-y-auto chat-container" style="background-color: var(--whatsapp-bg); background-image: url('https://w.forfun.com/fetch/f2/f2a74c771746f3152063d81b241315fc.jpeg'); background-size: cover; background-position: center;">
+            <!-- Mensagem de Criptografia -->
+            <div class="encryption-message">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.5 8V7a5 5 0 0110 0v1h-2V7a3 3 0 00-6 0v1H5.5zm.75 3.5a.75.75 0 000 1.5h.01a.75.75 0 000-1.5H6.25z" clip-rule="evenodd" />
+                    <path d="M2 8.75A.75.75 0 012.75 8h14.5a.75.75 0 01.75.75v8.5A.75.75 0 0117.25 18H2.75a.75.75 0 01-.75-.75v-8.5zM6.25 11.5a.75.75 0 000 1.5h.01a.75.75 0 000-1.5H6.25zM10 11.5a.75.75 0 000 1.5h.01a.75.75 0 000-1.5H10zM13.75 11.5a.75.75 0 000 1.5h.01a.75.75 0 000-1.5H13.75z" />
+                </svg>
+                As mensagens que você envia nesta conversa são protegidas com criptografia de ponta a ponta.
+            </div>
+            <!-- Separador de data inicial -->
+            <div class="date-separator"><span>Hoje</span></div>
+            <!-- As mensagens do chat serão inseridas aqui -->
+        </div>
+
+        <!-- Área de Opções Rápidas -->
+        <div id="options-area" class="p-4 border-t border-gray-200 bg-white">
+            <!-- Opções iniciais ou de acessibilidade aparecerão aqui -->
+        </div>
+
+        <!-- Input do Usuário - Estilo WhatsApp Aprimorado -->
+        <div class="p-3 bg-transparent rounded-b-2xl">
+            <div class="flex items-end space-x-2 justify-center">
+                <div class="relative flex-1 bg-white rounded-full flex items-center py-2 px-4 shadow-sm max-w-md">
+                    <button class="text-gray-500 hover:text-gray-700 mr-2">
+                        <i class="far fa-smile text-xl"></i> <!-- Ícone de emoji -->
+                    </button>
+                    <input type="text" id="user-input" class="flex-1 outline-none bg-transparent" placeholder="Mensagem">
+                    <button class="text-gray-500 hover:text-gray-700 mx-2">
+                        <i class="fas fa-paperclip text-xl"></i> <!-- Ícone de anexo -->
+                    </button>
+                    <button class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-camera text-xl"></i> <!-- Ícone de câmera -->
+                    </button>
+                    <!-- Novo ícone de áudio verde -->
+                    <button class="text-whatsapp-mic-icon-green hover:opacity-80 ml-2">
+                        <i class="fas fa-microphone-alt text-xl"></i> 
+                    </button>
+                </div>
+                <button id="action-btn" class="bg-whatsapp-header-green text-white rounded-full p-3 w-12 h-12 flex items-center justify-center hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    <i id="action-icon" class="fas fa-microphone text-xl"></i> <!-- Ícone dinâmico: microfone ou avião -->
+                </button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- ELEMENTOS DO DOM ---
+    const chatBody = document.getElementById('chat-body');
+    const userInput = document.getElementById('user-input');
+    const actionBtn = document.getElementById('action-btn'); // Botão de ação (enviar/microfone)
+    const actionIcon = document.getElementById('action-icon'); // Ícone dentro do botão de ação
+    const optionsArea = document.getElementById('options-area');
+    const listeningIndicator = document.getElementById('listening-indicator');
+    const thinkingIndicator = document.getElementById('thinking-indicator'); // Novo indicador de "pensando"
+
+    // --- CONFIGURAÇÕES GLOBAIS ---
+    let conversationState = 'initial';
+    let patientData = {};
+    let isAudioEnabled = true; // Áudio ativado por padrão
+    let selectedVoice = null;
+    let fieldToAlter = ''; // Variável para armazenar qual campo está sendo alterado
+
+    // --- TRADUÇÕES (Removida a opção de idioma, mantido apenas pt-BR) ---
+    const translations = {
+        'pt-BR': {
+            'language_prompt': 'Olá! Eu sou a Dona Irba, sua assistente virtual. Para uma melhor acessibilidade, as minhas respostas serão lidas em voz alta.',
+            'audio_preference_prompt': 'Você deseja continuar com as respostas em áudio ou prefere desativar?',
+            'audio_options': ['Continuar com áudio', 'Desativar áudio'],
+            'audio_on': 'Ótimo! Manterei as respostas em áudio para facilitar. Como posso te ajudar hoje?',
+            'audio_off': 'Áudio desativado. Como posso te ajudar hoje?',
+            'initial_options': ['Marcar Consulta', 'Verificar Convênios', 'Horários de Visita', 'Acessibilidade', 'Perguntar sobre Saúde ✨'],
+            'unknown_input': 'Desculpe, não consegui entender sua solicitação. Poderia, por gentileza, tentar de outra forma?',
+            'appointment_start': 'Com certeza! Para iniciarmos o agendamento, por favor, me informe o seu número de CPF. Apenas os números, por favor.',
+            'cpf_placeholder': 'Ex: 12345678900',
+            'cpf_validation_error': 'O formato do CPF está incorreto. Por favor, digite apenas os 11 números, sem pontos ou traços.',
+            'checking_cpf': 'Agradeço! Estou verificando o CPF informado...',
+            'first_access_name': 'Parece que é seu primeiro acesso. Para prosseguir, qual o seu nome completo?',
+            'name_placeholder': 'Digite seu nome completo aqui',
+            'social_name_prompt': (name) => `${name}, você utiliza um nome social que gostaria que eu usasse?`,
+            'social_name_options': ['Sim, uso nome social', 'Não, não uso'],
+            'social_name_input': 'Por favor, informe seu nome social.',
+            'dob_prompt': 'Certo! Agora, qual a sua data de nascimento completa?',
+            'dob_placeholder': 'Ex: Dia/Mês/Ano (01/01/1950)',
+            'dob_validation_error': 'Data de nascimento inválida. Por favor, use o formato Dia/Mês/Ano (ex: 01/01/1950) e certifique-se de que é uma data real.',
+            'ask_email_permission': 'Você possui um e-mail para contato?',
+            'email_permission_options': ['Sim, tenho e-mail', 'Não, não tenho e-mail'],
+            'email_prompt': 'Para que eu possa enviar as informações do seu agendamento, qual o seu melhor endereço de e-mail?',
+            'email_placeholder': 'Ex: seuemail@dominio.com',
+            'email_validation_error': 'Formato de e-mail inválido. Por favor, insira um e-mail válido (ex: seuemail@dominio.com).',
+            'phone_prompt': 'Agradeço. E o seu número de telefone celular, incluindo o DDD?',
+            'phone_placeholder': 'Ex: (XX) 9XXXX-XXXX',
+            'phone_validation_error': 'Número de telefone inválido. Por favor, digite com o DDD, no formato (dois dígitos) nove quatro ou cinco dígitos hífen quatro dígitos ou apenas os 11 números, como 77912345678.',
+            'appointment_for_prompt': 'Este agendamento é para você mesmo(a) ou para outra pessoa?',
+            'appointment_for_options': ['Para mim mesmo(a)', 'Para outra pessoa'],
+            'appointment_type_prompt': 'Compreendido. Seria para uma consulta médica ou para um exame?',
+            'appointment_type_options': ['Consulta', 'Exame'],
+            'insurance_prompt': (type) => `Certo, um agendamento de ${type}. O atendimento será particular ou por meio de algum convênio médico?`,
+            'insurance_options': ['Particular', 'Por Convênio'],
+            'doctor_preference_prompt': 'Você possui alguma preferência por um médico ou médica específico(a)?',
+            'doctor_preference_options': ['Sim, tenho preferência', 'Não, qualquer uno está bom'],
+            'doctor_name_prompt': 'Por favor, digite o nome completo do(a) médico(a) de sua preferência.',
+            'date_prompt': 'Entendido! Agora, qual a data de sua preferência?',
+            'date_placeholder': 'Ex: 25/12/2024',
+            'date_validation_error_format': 'Por favor, digite a data no formato correto: Dia/Mês/Ano (DD/MM/AAAA).',
+            'period_prompt': 'E qual período do dia você prefere?',
+            'period_options': ['Manhã', 'Tarde', 'Noite', 'Qualquer período'],
+            'appointment_summary_intro': 'Perfeito! Seu pré-agendamento foi concluído com sucesso.',
+            'appointment_summary': (data) => `Resumo do agendamento: Paciente: ${data.fullName} | Tipo de Atendimento: ${data.appointmentType} | Tipo de Convênio: ${data.insurance} | Médico(a) de Preferência: ${data.doctorPreference} | Data Agendada: ${data.preferredDate} | Período Preferido: ${data.preferredPeriod}`,
+            'final_message': 'Nossa equipe entrará em contato em breve para confirmar o horário exato e todos os detalhes. Seus dados foram salvos com segurança. Muito obrigado(a) pela confiança! Enviaremos um SMS ou e-mail de confirmação no horário e dia escolhido.',
+            'final_placeholder': 'Atendimento finalizado. Digite "Olá" para recomeçar.',
+            'convenio_info': 'No Hospital IBR, aceitamos os seguintes convênios: SulAmérica, Bradesco Saúde, Amil e Unimed. Para informações mais detalhadas sobre a cobertura do seu plano, o ideal é entrar em contato diretamente com a sua operadora de convênio.',
+            'visit_hours_info': 'O horário de visitas em nosso hospital é das 14h00 às 18h00, todos os dias da semana. É permitido apenas um visitante por vez para cada paciente, visando o bem-estar de todos.',
+            'accessibility_check': 'Sim, posso adaptar o atendimento para maior conforto. Você gostaria de aumentar o tamanho da fonte neste chat?',
+            'accessibility_options': ['Sim, fonte maior', 'Não, obrigado(a)'],
+            'font_adjusted': 'Pronto! Aumentei a fonte para você. Espero que esteja mais fácil de ler. Como mais posso te ajudar?',
+            'font_kept': 'Entendido. Mantive a fonte no tamanho padrão. Se precisar de mais alguma coisa, é só me dizer!',
+            'age_prompt': 'Para completar seu cadastro, qual a sua idade em anos?',
+            'age_placeholder': 'Ex: 65',
+            'age_validation_error': 'Por favor, digite uma idade válida, utilizando apenas números.',
+            'age_child_greeting': 'Que alegria conversar com você! Entendi que você é bem jovem. Para facilitar, vou usar uma linguagem mais simples e clara em nossas conversas, está bem?',
+            'age_adult_greeting': 'Certo, entendi sua idade. Como posso prosseguir para te ajudar agora?',
+            'age_adolescent_greeting': 'Certo, muito obrigado(a) por informar! Como posso te ajudar?',
+            'age_elderly_greeting': 'Muito obrigado(a) por informar sua idade! Fico feliz em ajudar. Farei o possível para ser o mais clara e paciente possível em nossas interações, e você pode pedir para repetir quando precisar, ok?',
+            'ask_alter_data_prompt': 'Você gostaria de alterar algum dado?',
+            'alter_data_options': ['Sim, alterar dados', 'Não, finalizar'],
+            'choose_field_to_alter': 'Qual dado você gostaria de alterar?',
+            'field_alter_options': {
+                'cpf': 'CPF',
+                'fullName': 'Nome Completo',
+                'socialName': 'Nome Social',
+                'dob': 'Data de Nascimento',
+                'email': 'E-mail',
+                'phone': 'Telefone',
+                'appointmentFor': 'Agendamento Para',
+                'appointmentType': 'Tipo de Atendimento',
+                'insurance': 'Convênio',
+                'doctorPreference': 'Médico(a) de Preferência',
+                'preferredDate': 'Data Agendada',
+                'preferredPeriod': 'Período Preferido'
+            },
+            'ask_new_value_prompt': (field) => `Por favor, digite o novo valor para "${field}".`,
+            'alter_success_message': (field) => `Campo "${field}" atualizado com sucesso!`,
+            'alter_invalid_field': 'Não consegui identificar o campo para alteração. Por favor, escolha uma das opções listadas.',
+            'alter_finished_message': 'Ótimo! Seus dados foram atualizados. Algo mais?',
+            'health_question_prompt': 'Claro! Qual sua pergunta sobre saúde? Tentarei responder da melhor forma possível.',
+            'health_question_placeholder': 'Ex: Quais os benefícios da vitamina C?',
+            'health_thinking': 'Pensando em uma resposta...',
+            'health_error': 'Desculpe, não consegui gerar uma resposta para sua pergunta no momento. Por favor, tente novamente mais tarde.',
+            'health_follow_up': 'Posso ajudar com algo mais ou gostaria de fazer outra pergunta sobre saúde?',
+            'health_follow_up_options': ['Fazer outra pergunta sobre saúde', 'Voltar ao menu principal'],
+        }
+    };
+
+    /**
+     * Retrieves the translated text for a given key in the current language.
+     * @param {string} key - The key for the translation.
+     * @param {any} [data] - Optional data to pass to translation function if it's a function.
+     * @returns {string} The translated text.
+     */
+    function getTranslatedText(key, data = null) {
+        const text = translations['pt-BR'][key];
+        if (typeof text === 'function') {
+            return text(data);
+        }
+        return text || `[Missing translation for ${key}]`;
+    }
+
+    // --- LÓGICA DE SÍNTESE DE VOZ (LEITOR) ---
+    const synth = window.speechSynthesis;
+    
+    function loadAndSetVoice() {
+        const voices = synth.getVoices();
+        let preferredVoice = voices.find(voice => voice.lang === 'pt-BR' && voice.name.toLowerCase().includes('maria'));
+        if (!preferredVoice) {
+            preferredVoice = voices.find(voice => voice.lang === 'pt-BR' && voice.name.toLowerCase().includes('female'));
+        }
+        selectedVoice = preferredVoice || voices.find(voice => voice.lang.startsWith('pt-BR')) || voices[0];
+    }
+
+    if (synth.onvoiceschanged !== undefined) {
+        synth.onvoiceschanged = loadAndSetVoice;
+    }
+    loadAndSetVoice();
+
+    /**
+     * Reproduz o texto em voz alta usando a API de Síntese de Voz.
+     * Inclui lógica para aguardar o carregamento da voz, se necessário.
+     * @param {string} text - O texto a ser lido.
+     */
+    function speak(text) {
+        if (!synth) {
+            console.error("API de Síntese de Voz não suportada.");
+            return;
+        }
+        
+        if (!selectedVoice) {
+            console.warn("Nenhuma voz selecionada para fala. Tentando carregar vozes novamente...");
+            loadAndSetVoice();
+
+            if (!selectedVoice && synth.onvoiceschanged !== loadAndSetVoice) {
+                const originalOnVoicesChanged = synth.onvoiceschanged;
+                synth.onvoiceschanged = () => {
+                    loadAndSetVoice();
+                    if (selectedVoice) {
+                        const utterance = new SpeechSynthesisUtterance(text);
+                        utterance.lang = 'pt-BR';
+                        utterance.voice = selectedVoice;
+                        utterance.pitch = 0.85;
+                        utterance.rate = 0.95;
+                        synth.speak(utterance);
+                        synth.onvoiceschanged = originalOnVoicesChanged;
+                    }
+                };
+                return;
+            } else if (!selectedVoice) {
+                 console.warn("Ainda não foi possível selecionar a voz. A fala pode ser atrasada.");
+                 return;
+            }
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'pt-BR';
+
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+            utterance.pitch = 0.85;
+            utterance.rate = 0.95;
+        }
+        
+        synth.speak(utterance);
+    }
+
+    // --- LÓGICA DE RECONHECIMENTO DE VOZ (MICROFONE) ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition;
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'pt-BR';
+        recognition.onstart = () => {
+            listeningIndicator.style.display = 'block';
+            actionIcon.classList.remove('fa-microphone', 'fa-paper-plane');
+            actionIcon.classList.add('fa-stop-circle'); // Ícone de parar gravação
+            actionBtn.style.backgroundColor = '#FF0000'; // Cor vermelha para indicar gravação
+        };
+        recognition.onend = () => {
+            listeningIndicator.style.display = 'none';
+            actionIcon.classList.remove('fa-stop-circle');
+            actionIcon.classList.add('fa-microphone');
+            actionBtn.style.backgroundColor = 'var(--whatsapp-header-green)';
+        };
+        recognition.onerror = (event) => {
+            console.error("Erro no reconhecimento de voz:", event.error);
+            listeningIndicator.style.display = 'none';
+            actionIcon.classList.remove('fa-stop-circle');
+            actionIcon.classList.add('fa-microphone');
+            actionBtn.style.backgroundColor = 'var(--whatsapp-header-green)';
+        };
+        recognition.onresult = (event) => {
+            userInput.value = event.results[0][0].transcript;
+            setTimeout(() => handleUserInput(), 300);
+        };
+    } else {
+        // Se a API de reconhecimento de voz não for suportada, o botão de microfone sempre será um botão de envio.
+        actionIcon.classList.remove('fa-microphone');
+        actionIcon.classList.add('fa-paper-plane');
+    }
+    
+    // --- LÓGICA DO CHATBOT ---
+
+    /**
+     * Função auxiliar para formatar uma string de números para leitura dígito a dígito.
+     * Ex: "12345" -> "um, dois, três, quatro, cinco"
+     * @param {string} numberString - A string de números a ser formatada.
+     * @returns {string} A string formatada para leitura dígito a dígito.
+     */
+    function formatNumberForSpeech(numberString) {
+        // Remove qualquer caractere não numérico e adiciona vírgulas para pausas na fala
+        return String(numberString).replace(/\D/g, '').split('').join(', ');
+    }
+
+    /**
+     * Envia uma mensagem do bot, com opção de leitura em voz alta.
+     * @param {string} text - O texto da mensagem do bot.
+     * @param {boolean} [forceSpeak=false] - Força a fala, ignorando a configuração global.
+     */
+    function sendBotMessage(text, forceSpeak = false) {
+        addMessage(text, 'bot');
+        if (isAudioEnabled || forceSpeak) {
+            speak(text);
+        }
+    }
+
+    /**
+     * Adiciona uma mensagem (balão) na tela do chat.
+     * @param {string} text - O texto da mensagem.
+     * @param {string} sender - 'bot' ou 'user'.
+     */
+    function addMessage(text, sender) {
+        const messageWrapper = document.createElement('div');
+        const messageElement = document.createElement('div');
+        
+        if (sender === 'bot') {
+            messageWrapper.className = 'flex items-center self-start w-full';
+            messageElement.className = 'chat-bubble bot-bubble bg-whatsapp-grey-bubble text-gray-800 rounded-br-none';
+            messageElement.textContent = text;
+            
+            const speakerBtn = document.createElement('button');
+            speakerBtn.className = 'ml-2 text-gray-400 hover:text-whatsapp-header-green p-1 rounded-full shrink-0';
+            speakerBtn.innerHTML = `<i class="fas fa-volume-up text-base"></i>`;
+            speakerBtn.onclick = () => speak(text);
+            
+            messageWrapper.appendChild(messageElement);
+            messageWrapper.appendChild(speakerBtn);
+        } else { // sender === 'user'
+            messageWrapper.className = 'flex justify-end w-full';
+            messageElement.className = 'chat-bubble user-bubble bg-whatsapp-green-bubble text-gray-800 rounded-bl-none';
+            messageElement.textContent = text;
+            messageWrapper.appendChild(messageElement);
+        }
+        
+        chatBody.appendChild(messageWrapper);
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    /** Adiciona botões de resposta rápida. */
+    function showQuickReplies(options) {
+        optionsArea.innerHTML = '';
+        const container = document.createElement('div');
+        container.className = 'flex flex-wrap gap-2 justify-center';
+        options.forEach(optionText => {
+            const button = document.createElement('button');
+            // Usando as novas classes de estilo para os quick-reply-btn
+            button.className = 'quick-reply-btn bg-gray-100 text-gray-800 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-200 border border-gray-300';
+            button.textContent = optionText;
+            button.onclick = () => { handleUserInput(optionText); optionsArea.innerHTML = ''; };
+            container.appendChild(button);
+        });
+        optionsArea.appendChild(container);
+    }
+
+    /** Adapts the greeting based on the user's age. */
+    function getAgeAdaptedGreeting(age) {
+        if (age <= 12) {
+            return getTranslatedText('age_child_greeting');
+        } else if (age > 12 && age < 18) {
+            return getTranslatedText('age_adolescent_greeting');
+        } else if (age >= 60) {
+            return getTranslatedText('age_elderly_greeting');
+        }
+        else {
+            return getTranslatedText('age_adult_greeting');
+        }
+    }
+
+    /** Helper function for input validation and state transition. */
+    function validateAndTransition(input, validationRegex, errorKey, nextState, successCallback) {
+        if (!validationRegex.test(input)) {
+            sendBotMessage(getTranslatedText(errorKey));
+            userInput.placeholder = getTranslatedText(errorKey.replace('_validation_error', '_placeholder'));
+            return false;
+        }
+        successCallback();
+        conversationState = nextState;
+        return true;
+    }
+
+    /**
+     * Calls the Gemini API to generate a response for a given prompt.
+     * @param {string} prompt - The user's question to send to the LLM.
+     * @returns {Promise<string>} The generated response from the LLM.
+     */
+    async function getGeminiResponse(prompt) {
+        thinkingIndicator.style.display = 'block'; // Show thinking indicator
+        userInput.disabled = true;
+
+        let chatHistory = [];
+        chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+        const payload = { contents: chatHistory };
+        const apiKey = ""; // Canvas will automatically provide the API key
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                return result.candidates[0].content.parts[0].text;
+            } else {
+                console.error("Unexpected API response structure:", result);
+                return getTranslatedText('health_error');
+            }
+        } catch (error) {
+            console.error("Error calling Gemini API:", error);
+            return getTranslatedText('health_error');
+        } finally {
+            thinkingIndicator.style.display = 'none'; // Hide thinking indicator
+            userInput.disabled = false;
+            userInput.focus();
+        }
+    }
+
+
+    /** Processa a entrada do usuário e gera a resposta do bot. */
+    async function processBotResponse(input) { // Added async keyword here
+        const lowerInput = input.toLowerCase();
+        const handleUnknownInput = () => setTimeout(() => { sendBotMessage(getTranslatedText('unknown_input')); showInitialOptions(); }, 1000);
+        
+        switch(conversationState) {
+            case 'audio_preference':
+                if (lowerInput.includes(getTranslatedText('audio_options')[1].toLowerCase().split(' ')[0])) {
+                    isAudioEnabled = false;
+                    sendBotMessage(getTranslatedText('audio_off'));
+                } else {
+                    isAudioEnabled = true;
+                    sendBotMessage(getTranslatedText('audio_on'));
+                }
+                conversationState = 'initial';
+                setTimeout(showInitialOptions, 1500);
+                break;
+
+            case 'initial':
+                if (lowerInput.includes('remarcar') || lowerInput.includes('marcar') || lowerInput.includes('agendar') || lowerInput.includes(getTranslatedText('initial_options')[0].toLowerCase())) {
+                    conversationState = 'start_registration';
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('appointment_start')); 
+                        userInput.placeholder = getTranslatedText('cpf_placeholder'); 
+                    }, 800);
+                } else if (lowerInput.includes('convênio') || lowerInput.includes('plano') || lowerInput.includes(getTranslatedText('initial_options')[1].toLowerCase().split(' ')[0])) {
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('convenio_info')); 
+                        setTimeout(showInitialOptions, 2000); 
+                    }, 800);
+                } else if (lowerInput.includes('horário') || lowerInput.includes('visita') || lowerInput.includes(getTranslatedText('initial_options')[2].toLowerCase().split(' ')[0])) {
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('visit_hours_info')); 
+                        setTimeout(showInitialOptions, 2000); 
+                    }, 800);
+                } else if (lowerInput.includes('acessibilidade') || lowerInput.includes(getTranslatedText('initial_options')[3].toLowerCase())){
+                    conversationState = 'accessibility_check';
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('accessibility_check')); 
+                        showQuickReplies(getTranslatedText('accessibility_options')); 
+                    }, 800);
+                } else if (lowerInput.includes('saúde') || lowerInput.includes('perguntar sobre saúde')) { // New LLM feature trigger
+                    conversationState = 'awaiting_health_question';
+                    setTimeout(() => {
+                        sendBotMessage(getTranslatedText('health_question_prompt'));
+                        userInput.placeholder = getTranslatedText('health_question_placeholder');
+                    }, 800);
+                }
+                else {
+                    handleUnknownInput();
+                }
+                break;
+            case 'accessibility_check':
+                if(lowerInput.includes(getTranslatedText('accessibility_options')[0].toLowerCase().split(',')[0])){
+                    document.getElementById('chat-body').classList.add('accessible-font');
+                    setTimeout(() => { sendBotMessage(getTranslatedText('font_adjusted')); }, 800);
+                } else {
+                    setTimeout(() => { sendBotMessage(getTranslatedText('font_kept')); }, 800);
+                }
+                conversationState = 'initial';
+                setTimeout(showInitialOptions, 1500);
+                break;
+            case 'start_registration':
+                const cleanedCpfInput = input.replace(/\D/g, ''); // Remove non-digits for validation
+                if (!validateAndTransition(cleanedCpfInput, /^\d{11}$/, 'cpf_validation_error', 'awaiting_name', () => patientData.cpf = cleanedCpfInput)) {
+                    return;
+                }
+                // Confirma o CPF lendo dígito por dígito
+                sendBotMessage(`Confirmo que seu CPF é: ${formatNumberForSpeech(patientData.cpf)}.`);
+                setTimeout(() => {
+                    sendBotMessage(getTranslatedText('checking_cpf'));
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('first_access_name')); 
+                        userInput.placeholder = getTranslatedText('name_placeholder'); 
+                    }, 2000); // Aumentado o delay para a próxima mensagem após a leitura do CPF
+                }, 1500); // Aumentado o delay para a próxima mensagem após a leitura do CPF
+                break;
+            case 'awaiting_name':
+                patientData.fullName = input;
+                conversationState = 'awaiting_age';
+                setTimeout(() => { 
+                    sendBotMessage(getTranslatedText('age_prompt')); 
+                    userInput.placeholder = getTranslatedText('age_placeholder'); 
+                }, 800);
+                break;
+            case 'awaiting_age':
+                const age = parseInt(input);
+                if (isNaN(age) || age <= 0 || age > 120) {
+                    sendBotMessage(getTranslatedText('age_validation_error'));
+                    userInput.placeholder = getTranslatedText('age_placeholder');
+                    return;
+                }
+                patientData.age = age;
+                conversationState = 'awaiting_social_name';
+                setTimeout(() => {
+                    sendBotMessage(getAgeAdaptedGreeting(age));
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('social_name_prompt', patientData.fullName.split(' ')[0])); 
+                        showQuickReplies(getTranslatedText('social_name_options'));
+                        userInput.placeholder = "Seu nome social (opcional)";
+                    }, 1500);
+                }, 800);
+                break;
+            case 'awaiting_social_name':
+                if (lowerInput.includes(getTranslatedText('social_name_options')[0].toLowerCase())) {
+                    conversationState = 'getting_social_name';
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('social_name_input')); 
+                        userInput.placeholder = "Digite o nome social";
+                    }, 800);
+                } else {
+                    patientData.socialName = 'N/A';
+                    conversationState = 'awaiting_dob';
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('dob_prompt')); 
+                        userInput.placeholder = getTranslatedText('dob_placeholder'); 
+                    }, 800);
+                }
+                break;
+            case 'getting_social_name':
+                patientData.socialName = input;
+                conversationState = 'awaiting_dob';
+                setTimeout(() => { 
+                    sendBotMessage(getTranslatedText('dob_prompt')); 
+                    userInput.placeholder = getTranslatedText('dob_placeholder'); 
+                }, 800);
+                break;
+            case 'awaiting_dob':
+                const dobRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+                if (!dobRegex.test(input)) { 
+                    sendBotMessage(getTranslatedText('dob_validation_error'));
+                    userInput.placeholder = getTranslatedText('dob_placeholder');
+                    return;
+                }
+                const parts = input.split('/');
+                const day = parseInt(parts[0]);
+                const month = parseInt(parts[1]) - 1;
+                const year = parseInt(parts[2]);
+                const dobDate = new Date(year, month, day);
+
+                if (dobDate.getFullYear() !== year || dobDate.getMonth() !== month || dobDate.getDate() !== day || dobDate > new Date()) {
+                    sendBotMessage(getTranslatedText('dob_validation_error'));
+                    userInput.placeholder = getTranslatedText('dob_placeholder');
+                    return;
+                }
+                patientData.dob = input;
+                conversationState = 'ask_email_permission'; 
+                setTimeout(() => { 
+                    sendBotMessage(getTranslatedText('ask_email_permission')); 
+                    showQuickReplies(getTranslatedText('email_permission_options'));
+                    userInput.placeholder = "";
+                }, 800);
+                break;
+            case 'ask_email_permission': 
+                if (lowerInput.includes(getTranslatedText('email_permission_options')[0].toLowerCase().split(',')[0])) { 
+                    conversationState = 'awaiting_email';
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('email_prompt')); 
+                        userInput.placeholder = getTranslatedText('email_placeholder'); 
+                    }, 500);
+                } else { 
+                    patientData.email = 'N/A';
+                    conversationState = 'awaiting_phone';
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('phone_prompt')); 
+                        userInput.placeholder = getTranslatedText('phone_placeholder'); 
+                    }, 500);
+                }
+                break;
+            case 'awaiting_email':
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!validateAndTransition(input, emailRegex, 'email_validation_error', 'awaiting_phone', () => patientData.email = input)) {
+                    return;
+                }
+                setTimeout(() => { 
+                    sendBotMessage(getTranslatedText('phone_prompt')); 
+                    userInput.placeholder = getTranslatedText('phone_placeholder'); 
+                }, 800);
+                break;
+            case 'awaiting_phone':
+                const phoneRegex = /^\(?\d{2}\)?\s?9?\d{4}-?\d{4}$|^\d{11}$/;
+                if (!validateAndTransition(input, phoneRegex, 'phone_validation_error', 'awaiting_appointment_for', () => patientData.phone = input)) {
+                    return;
+                }
+                setTimeout(() => { 
+                    sendBotMessage(getTranslatedText('appointment_for_prompt')); 
+                    showQuickReplies(getTranslatedText('appointment_for_options')); 
+                    userInput.placeholder = "";
+                }, 800);
+                break;
+            case 'awaiting_appointment_for':
+                patientData.appointmentFor = input;
+                conversationState = 'awaiting_appointment_type';
+                setTimeout(() => { 
+                    sendBotMessage(getTranslatedText('appointment_type_prompt')); 
+                    showQuickReplies(getTranslatedText('appointment_type_options')); 
+                }, 800);
+                break;
+            case 'awaiting_appointment_type':
+                patientData.appointmentType = input;
+                conversationState = 'awaiting_insurance';
+                setTimeout(() => { 
+                    sendBotMessage(getTranslatedText('insurance_prompt', patientData.appointmentType)); 
+                    showQuickReplies(getTranslatedText('insurance_options')); 
+                }, 800);
+                break;
+            case 'awaiting_insurance':
+                patientData.insurance = input;
+                conversationState = 'awaiting_doctor_preference';
+                setTimeout(() => { 
+                    sendBotMessage(getTranslatedText('doctor_preference_prompt')); 
+                    showQuickReplies(getTranslatedText('doctor_preference_options')); 
+                }, 800);
+                break;
+            case 'awaiting_doctor_preference':
+                if(lowerInput.includes(getTranslatedText('doctor_preference_options')[0].toLowerCase().split(',')[0])){
+                    conversationState = 'getting_doctor_name';
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('doctor_name_prompt')); 
+                        userInput.placeholder = "Nome completo do médico(a)";
+                    }, 800);
+                } else {
+                    patientData.doctorPreference = getTranslatedText('doctor_preference_options')[1];
+                    conversationState = 'awaiting_date';
+                    setTimeout(() => { 
+                        sendBotMessage(getTranslatedText('date_prompt')); 
+                        userInput.placeholder = getTranslatedText('date_placeholder'); 
+                    }, 800);
+                }
+                break;
+            case 'getting_doctor_name':
+                patientData.doctorPreference = input;
+                conversationState = 'awaiting_date';
+                setTimeout(() => { 
+                    sendBotMessage(getTranslatedText('date_prompt')); 
+                    userInput.placeholder = getTranslatedText('date_placeholder'); 
+                }, 800);
+                break;
+            case 'awaiting_date':
+                const simpleDateRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+                if (!simpleDateRegex.test(input)) {
+                    sendBotMessage(getTranslatedText('date_validation_error_format'));
+                    userInput.placeholder = getTranslatedText('date_placeholder');
+                    return;
+                }
+                patientData.preferredDate = input;
+                conversationState = 'awaiting_period'; 
+                setTimeout(() => {
+                    sendBotMessage(getTranslatedText('period_prompt'));
+                    showQuickReplies(getTranslatedText('period_options'));
+                    userInput.placeholder = "";
+                }, 800);
+                break;
+            case 'awaiting_period': 
+                patientData.preferredPeriod = input; 
+                conversationState = 'finished';
+                setTimeout(() => {
+                    sendBotMessage(getTranslatedText('appointment_summary_intro'));
+                    setTimeout(() => {
+                        const summary = getTranslatedText('appointment_summary', patientData);
+                        sendBotMessage(summary);
+                        setTimeout(() => {
+                            sendBotMessage(getTranslatedText('ask_alter_data_prompt'));
+                            showQuickReplies(getTranslatedText('alter_data_options'));
+                            userInput.placeholder = "";
+                            conversationState = 'awaiting_alter_choice';
+                        }, 1500);
+                    }, 800);
+                }, 500);
+                break;
+            
+            case 'awaiting_alter_choice':
+                if (lowerInput.includes(getTranslatedText('alter_data_options')[0].toLowerCase().split(',')[0])) {
+                    conversationState = 'awaiting_field_to_alter';
+                    const alterableFields = Object.keys(getTranslatedText('field_alter_options')).map(key => getTranslatedText('field_alter_options')[key]);
+                    setTimeout(() => {
+                        sendBotMessage(getTranslatedText('choose_field_to_alter'));
+                        showQuickReplies(alterableFields);
+                        userInput.placeholder = "Ex: CPF, Nome Completo";
+                    }, 500);
+                } else if (lowerInput.includes(getTranslatedText('alter_data_options')[1].toLowerCase().split(',')[0])) {
+                    conversationState = 'finalized';
+                    setTimeout(() => {
+                        sendBotMessage(getTranslatedText('final_message'));
+                        userInput.placeholder = getTranslatedText('final_placeholder');
+                        showQuickReplies(['Reiniciar Atendimento']);
+                        setupRestartButton();
+                    }, 500);
+                } else {
+                    sendBotMessage(getTranslatedText('unknown_input'));
+                    showQuickReplies(getTranslatedText('alter_data_options'));
+                }
+                break;
+
+            case 'awaiting_field_to_alter':
+                const fieldMap = getTranslatedText('field_alter_options');
+                const fieldKey = Object.keys(fieldMap).find(key => fieldMap[key].toLowerCase() === lowerInput);
+
+                if (fieldKey) {
+                    fieldToAlter = fieldKey;
+                    conversationState = 'awaiting_new_value';
+                    setTimeout(() => {
+                        sendBotMessage(getTranslatedText('ask_new_value_prompt', fieldMap[fieldKey]));
+                        if (fieldKey === 'cpf') userInput.placeholder = getTranslatedText('cpf_placeholder');
+                        else if (fieldKey === 'dob') userInput.placeholder = getTranslatedText('dob_placeholder');
+                        else if (fieldKey === 'email') userInput.placeholder = getTranslatedText('email_placeholder');
+                        else if (fieldKey === 'phone') userInput.placeholder = getTranslatedText('phone_placeholder');
+                        else if (fieldKey === 'preferredDate') userInput.placeholder = getTranslatedText('date_placeholder');
+                        else if (fieldKey === 'preferredPeriod') {
+                            showQuickReplies(getTranslatedText('period_options'));
+                            userInput.placeholder = "";
+                        }
+                        else userInput.placeholder = `Digite o novo ${fieldMap[fieldKey]}`;
+                    }, 500);
+                } else {
+                    sendBotMessage(getTranslatedText('alter_invalid_field'));
+                    const alterableFields = Object.keys(getTranslatedText('field_alter_options')).map(key => getTranslatedText('field_alter_options')[key]);
+                    showQuickReplies(alterableFields);
+                }
+                break;
+
+            case 'awaiting_new_value':
+                let isValid = true;
+                let validationErrorKey = '';
+                let processedInput = input; // Variável para o input limpo/processado
+
+                if (fieldToAlter === 'cpf') {
+                    processedInput = input.replace(/\D/g, ''); // Remove non-digits for CPF alteration
+                    if (!/^\d{11}$/.test(processedInput)) { isValid = false; validationErrorKey = 'cpf_validation_error'; }
+                } else if (fieldToAlter === 'dob') {
+                    const dobRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+                    const parts = input.split('/');
+                    const day = parseInt(parts[0]);
+                    const month = parseInt(parts[1]) - 1;
+                    const year = parseInt(parts[2]);
+                    const dobDate = new Date(year, month, day);
+                    if (!dobRegex.test(input) || dobDate.getFullYear() !== year || dobDate.getMonth() !== month || dobDate.getDate() !== day || dobDate > new Date()) {
+                        isValid = false; validationErrorKey = 'dob_validation_error';
+                    }
+                } else if (fieldToAlter === 'email') {
+                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)) { isValid = false; validationErrorKey = 'email_validation_error'; }
+                } else if (fieldToAlter === 'phone') {
+                    if (!/^\(?\d{2}\)?\s?9?\d{4}-?\d{4}$|^\d{11}$/.test(input)) { isValid = false; validationErrorKey = 'phone_validation_error'; }
+                } else if (fieldToAlter === 'preferredDate') {
+                    if (!/^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/.test(input)) { isValid = false; validationErrorKey = 'date_validation_error_format'; }
+                } else if (fieldToAlter === 'preferredPeriod') {
+                    const allowedPeriods = getTranslatedText('period_options').map(opt => opt.toLowerCase());
+                    if (!allowedPeriods.includes(input.toLowerCase())) {
+                        isValid = false;
+                        validationErrorKey = 'unknown_input';
+                    }
+                }
+
+                if (isValid) {
+                    patientData[fieldToAlter] = processedInput; // Usa o input processado
+                    sendBotMessage(getTranslatedText('alter_success_message', getTranslatedText('field_alter_options')[fieldToAlter]));
+                    conversationState = 'awaiting_alter_choice';
+                    setTimeout(() => {
+                        sendBotMessage(getTranslatedText('ask_alter_data_prompt'));
+                        showQuickReplies(getTranslatedText('alter_data_options'));
+                        userInput.placeholder = "";
+                    }, 1000);
+                } else {
+                    sendBotMessage(getTranslatedText(validationErrorKey));
+                    userInput.placeholder = getTranslatedText(validationErrorKey.replace('_validation_error', '_placeholder')) || `Digite o novo ${getTranslatedText('field_alter_options')[fieldToAlter]}`;
+                }
+                break;
+            
+            case 'awaiting_health_question': // New state for LLM question
+                const llmResponse = await getGeminiResponse(input);
+                sendBotMessage(llmResponse);
+                conversationState = 'health_follow_up';
+                setTimeout(() => {
+                    sendBotMessage(getTranslatedText('health_follow_up'));
+                    showQuickReplies(getTranslatedText('health_follow_up_options'));
+                }, 1000);
+                break;
+
+            case 'health_follow_up': // Handling follow-up for LLM
+                if (lowerInput.includes(getTranslatedText('health_follow_up_options')[0].toLowerCase().split(' ')[0])) {
+                    conversationState = 'awaiting_health_question';
+                    setTimeout(() => {
+                        sendBotMessage(getTranslatedText('health_question_prompt'));
+                        userInput.placeholder = getTranslatedText('health_question_placeholder');
+                    }, 500);
+                } else {
+                    conversationState = 'initial';
+                    setTimeout(showInitialOptions, 500);
+                }
+                break;
+
+            case 'finalized':
+                break;
+
+            default:
+                handleUnknownInput();
+                break;
+        }
+    }
+
+    /** Manipula a entrada do usuário (texto, voz ou botão). */
+    function handleUserInput(forcedInput) {
+        const text = forcedInput || userInput.value.trim();
+        if (!text) return;
+        addMessage(text, 'user');
+        if (!forcedInput) userInput.value = '';
+        
+        userInput.disabled = true;
+        setTimeout(() => {
+            processBotResponse(text);
+            // userInput.disabled = false; // Moved to getGeminiResponse finally block
+            // userInput.focus(); // Moved to getGeminiResponse finally block
+        }, 300);
+    }
+    
+    /** Inicia a conversa. */
+    function startConversation() {
+        conversationState = 'audio_preference';
+        setTimeout(() => {
+            sendBotMessage(getTranslatedText('language_prompt'), true); 
+            setTimeout(() => {
+                sendBotMessage(getTranslatedText('audio_preference_prompt'), true);
+                showQuickReplies(getTranslatedText('audio_options'));
+            }, 3000);
+        }, 1000);
+    }
+    
+    /** Mostra as opções iniciais do menu principal. */
+    function showInitialOptions() {
+        showQuickReplies(getTranslatedText('initial_options'));
+        userInput.placeholder = "Digite sua mensagem...";
+    }
+
+    /** Configura o botão de reiniciar atendimento. */
+    function setupRestartButton() {
+        const restartBtn = document.querySelector('.quick-reply-btn');
+        if (restartBtn && restartBtn.textContent === 'Reiniciar Atendimento') {
+            restartBtn.onclick = () => {
+                chatBody.innerHTML = `
+                    <div class="encryption-message">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.5 8V7a5 0 0110 0v1h-2V7a3 3 0 00-6 0v1H5.5zm.75 3.5a.75.75 0 000 1.5h.01a.75.75 0 000-1.5H6.25z" clip-rule="evenodd" />
+                            <path d="M2 8.75A.75.75 0 012.75 8h14.5a.75.75 0 01.75.75v8.5A.75.75 0 0117.25 18H2.75a.75.75 0 01-.75-.75v-8.5zM6.25 11.5a.75.75 0 000 1.5h.01a.75.75 0 000-1.5H6.25zM10 11.5a.75.75 0 000 1.5h.01a.75.75 0 000-1.5H10zM13.75 11.5a.75.75 0 000 1.5h.01a.75.75 0 000-1.5H13.75z" />
+                        </svg>
+                        As mensagens que você envia nesta conversa são protegidas com criptografia de ponta a ponta.
+                    </div>
+                    <div class="date-separator"><span>Hoje</span></div>
+                `;
+                patientData = {};
+                conversationState = 'initial';
+                startConversation();
+                optionsArea.innerHTML = '';
+                userInput.placeholder = "Mensagem"; // Adjusted placeholder
+            };
+        }
+    }
+
+    // --- EVENT LISTENERS ---
+    // Handle action button click (send or mic)
+    actionBtn.addEventListener('click', () => {
+        if (userInput.value.trim() === '' && recognition) { // Only try to start mic if recognition is available
+            recognition.start(); // Start mic if input is empty
+        } else if (userInput.value.trim() !== '') {
+            handleUserInput(); // Send message if input has text
+        }
+    });
+
+    // Toggle send/mic icon based on input text
+    userInput.addEventListener('input', () => {
+        if (userInput.value.trim() !== '') {
+            actionIcon.classList.remove('fa-microphone');
+            actionIcon.classList.add('fa-paper-plane');
+        } else {
+            actionIcon.classList.remove('fa-paper-plane');
+            actionIcon.classList.add('fa-microphone');
+        }
+    });
+
+    userInput.addEventListener('keydown', (e) => { 
+        if (e.key === 'Enter' && userInput.value.trim() !== '') { 
+            handleUserInput(); 
+        } else if (e.key === 'Enter' && userInput.value.trim() === '' && recognition) {
+            recognition.start(); // Start mic if Enter is pressed and input is empty
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', startConversation);
+</script>
+</body>
+</html>
